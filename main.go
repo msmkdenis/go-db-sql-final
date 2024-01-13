@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
+	"os"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -23,11 +25,15 @@ type Parcel struct {
 }
 
 type ParcelService struct {
-	store ParcelStore
+	store  ParcelStore
+	logger *slog.Logger
 }
 
-func NewParcelService(store ParcelStore) ParcelService {
-	return ParcelService{store: store}
+func NewParcelService(store ParcelStore, logger *slog.Logger) ParcelService {
+	return ParcelService{
+		store:  store,
+		logger: logger,
+	}
 }
 
 func (s ParcelService) Register(client int, address string) (Parcel, error) {
@@ -99,8 +105,10 @@ func (s ParcelService) Delete(number int) error {
 func main() {
 	// настройте подключение к БД
 
-	store := // создайте объект ParcelStore функцией NewParcelStore
-	service := NewParcelService(store)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	db := initDB("sqlite", "tracker.db", *logger) // подключение к БД
+	store := NewParcelStore(db, logger)
+	service := NewParcelService(store, logger)
 
 	// регистрация посылки
 	client := 1
@@ -169,4 +177,14 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+}
+
+func initDB(driver, dbName string, logger slog.Logger) *sql.DB {
+	db, err := sql.Open(driver, dbName)
+	if err != nil {
+		logger.Error("failed to open database", "error", err)
+		os.Exit(1)
+	}
+
+	return db
 }

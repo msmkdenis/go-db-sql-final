@@ -1,0 +1,18 @@
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  sqlite-integration-tests:
+    runs-on: ubuntu-latest
+    container: golang:1.21
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Run unit tests
+        run: go test -race -tags fast -v ./...
