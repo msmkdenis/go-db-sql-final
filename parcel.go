@@ -2,45 +2,104 @@ package main
 
 import (
 	"database/sql"
+	"log/slog"
 )
 
 type ParcelStore struct {
-	db *sql.DB
+	db     *sql.DB
+	logger *slog.Logger
 }
 
-func NewParcelStore(db *sql.DB) ParcelStore {
-	return ParcelStore{db: db}
+func NewParcelStore(db *sql.DB, logger *slog.Logger) ParcelStore {
+	return ParcelStore{
+		db:     db,
+		logger: logger,
+	}
 }
 
 func (s ParcelStore) Add(p Parcel) (int, error) {
-	// реализуйте добавление строки в таблицу parcel, используйте данные из переменной p
+	row := s.db.QueryRow(
+		`
+		insert into parcel (client, status, address, created_at)
+		values (?, ?, ?, ?) 
+		returning *
+		`, p.Client, p.Status, p.Address, p.CreatedAt)
 
-	// верните идентификатор последней добавленной записи
-	return 0, nil
+	parcel := Parcel{}
+	err := row.Scan(&parcel.Number, &parcel.Client, &parcel.Status, &parcel.Address, &parcel.CreatedAt)
+	if err != nil {
+		s.logger.Error("failed to add parcel", "error", err)
+		return 0, err
+	}
+
+	return parcel.Number, nil
 }
 
-func (s ParcelStore) Get(number int) (Parcel, error) {
-	// реализуйте чтение строки по заданному number
-	// здесь из таблицы должна вернуться только одна строка
+func (s ParcelStore) Get(number int) (*Parcel, error) {
+	row := s.db.QueryRow(
+		`
+		select 
+    	number, client, status, address, created_at 
+		from parcel 
+		where number = $1
+		`, number)
 
-	// заполните объект Parcel данными из таблицы
-	p := Parcel{}
+	parcel := Parcel{}
+	err := row.Scan(&parcel.Number, &parcel.Client, &parcel.Status, &parcel.Address, &parcel.CreatedAt)
+	if err != nil {
+		s.logger.Error("failed to get parcel", "error", err)
+		return nil, err
+	}
 
-	return p, nil
+	return &parcel, nil
 }
 
 func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
-	// реализуйте чтение строк из таблицы parcel по заданному client
-	// здесь из таблицы может вернуться несколько строк
+	rows, err := s.db.Query(
+		`
+		select 
+		number, client, status, address, created_at 
+		from parcel 
+		where client = $1
+		`, client)
 
-	// заполните срез Parcel данными из таблицы
+	if err != nil {
+		s.logger.Error("failed to get parcels by client", "error", err)
+		return nil, err
+	}
+
 	var res []Parcel
+	for rows.Next() {
+		parcel := Parcel{}
+		errScan := rows.Scan(&parcel.Number, &parcel.Client, &parcel.Status, &parcel.Address, &parcel.CreatedAt)
+		if errScan != nil {
+			s.logger.Error("failed to scan parcel", "error", errScan)
+			return nil, errScan
+		}
+		res = append(res, parcel)
+	}
 
 	return res, nil
 }
 
 func (s ParcelStore) SetStatus(number int, status string) error {
-	// реализуйте обновление статуса в таблице parcel
+	stmt, err := s.db.Prepare(
+		`
+		update parcel
+		set status = $1
+		where number = $2
+		`)
+
+	if err != nil {
+		s.logger.Error("failed to prepare statement", "error", err)
+		return err
+	}
+
+	_, err = stmt.Exec(status, number)
+	if err != nil {
+		s.logger.Error("failed to execute statement", "error", err)
+		return err
+	}
 
 	return nil
 }
@@ -48,6 +107,22 @@ func (s ParcelStore) SetStatus(number int, status string) error {
 func (s ParcelStore) SetAddress(number int, address string) error {
 	// реализуйте обновление адреса в таблице parcel
 	// менять адрес можно только если значение статуса registered
+	stmt, err := s.db.Prepare(
+		`
+		update parcel
+		set address = $1
+		where number = $2 and status = 'registered'
+		`)
+	if err != nil {
+		s.logger.Error("failed to prepare statement", "error", err)
+		return err
+	}
+
+	_, err = stmt.Exec(address, number)
+	if err != nil {
+		s.logger.Error("failed to execute statement", "error", err)
+		return err
+	}
 
 	return nil
 }
@@ -55,6 +130,21 @@ func (s ParcelStore) SetAddress(number int, address string) error {
 func (s ParcelStore) Delete(number int) error {
 	// реализуйте удаление строки из таблицы parcel
 	// удалять строку можно только если значение статуса registered
+	stmt, err := s.db.Prepare(
+		`
+		delete from parcel
+		where number = $1 and status = 'registered'
+		`)
+	if err != nil {
+		s.logger.Error("failed to prepare statement", "error", err)
+		return err
+	}
+
+	_, err = stmt.Exec(number)
+	if err != nil {
+		s.logger.Error("failed to execute statement", "error", err)
+		return err
+	}
 
 	return nil
 }
