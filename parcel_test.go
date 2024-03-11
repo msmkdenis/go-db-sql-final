@@ -43,7 +43,7 @@ type SQLiteSuite struct {
 
 func (s *SQLiteSuite) SetupSuite() {
 	s.driverName = "sqlite"
-	s.dbName = "db/tracker.db"
+	s.dbName = "tracker.db"
 	db, err := sql.Open(s.driverName, s.dbName)
 	if err != nil {
 		slog.Error("failed to open database", "error", err)
