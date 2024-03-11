@@ -106,7 +106,7 @@ func main() {
 	// настройте подключение к БД
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	db := initDB("sqlite", "tracker.db", *logger) // подключение к БД
+	db := initDB("sqlite", "db/tracker.db", *logger) // подключение к БД
 	store := NewParcelStore(db, logger)
 	service := NewParcelService(store, logger)
 
