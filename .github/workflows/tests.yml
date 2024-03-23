@@ -6,13 +6,32 @@ jobs:
     container: golang:1.22
     steps:
       - uses: actions/checkout@v4
-
       - name: Run Unit Tests
         run: GOOS=linux GOARCH=amd64 go test
-
       - name: Vet
         run: |
           go vet ./...
+
+  tests-race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+      - name: Test
+        run: go test -race -v ./...
+
+  golangci-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+          check-latest: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3.6.0
+        with:
+          version: v1.56.1
 
   deploy:
     name: Push Docker image to Docker Hub
